@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galerie 360</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <script src="users-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; height: 100vh; background: #1a1a1a; color: #fff; }
+
+        /* Login overlay */
+        #login-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+        }
+        #login-box {
+            background: #2a2a2a; padding: 2rem; border-radius: 8px;
+            text-align: center; min-width: 300px;
+        }
+        #login-box h2 { margin-bottom: 1rem; }
+        #login-box input {
+            padding: 0.5rem 1rem; font-size: 1rem; border: 1px solid #555;
+            border-radius: 4px; background: #333; color: #fff; width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        #login-box button {
+            padding: 0.5rem 1.5rem; font-size: 1rem; border: none;
+            border-radius: 4px; background: #4a9eff; color: #fff; cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        #login-box button:hover { background: #3a8eef; }
+        #login-error { color: #ff6b6b; margin-top: 0.5rem; min-height: 1.2em; }
+        #blacklisted-msg { color: #ff6b6b; }
+
+        /* Main layout */
+        #app { display: flex; height: 100vh; }
+        #viewer { flex: 1; }
+        #sidebar {
+            width: 220px; background: #222; overflow-y: auto;
+            padding: 8px; flex-shrink: 0;
+        }
+        #sidebar .thumb {
+            width: 100%; aspect-ratio: 2/1; object-fit: cover;
+            border-radius: 4px; cursor: pointer; margin-bottom: 8px;
+            border: 2px solid transparent; transition: border-color 0.2s;
+        }
+        #sidebar .thumb:hover { border-color: #4a9eff; }
+        #sidebar .thumb.active { border-color: #4a9eff; }
+        #user-bar {
+            padding: 8px; font-size: 0.85rem; color: #aaa;
+            border-bottom: 1px solid #333; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #user-bar a { color: #ff6b6b; cursor: pointer; text-decoration: underline; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div id="login-overlay" style="display:none;">
+    <div id="login-box">
+        <div id="blacklisted-msg" style="display:none;">
+            <h2>Acces refuse</h2>
+            <p>Trop de tentatives. Acces bloque.</p>
+        </div>
+        <div id="login-form">
+            <h2>Galerie 360</h2>
+            <p style="margin-bottom:1rem;color:#aaa;">Entrez votre prenom</p>
+            <input type="text" id="name-input" placeholder="Prenom" autofocus>
+            <button id="login-btn">Entrer</button>
+            <div id="login-error"></div>
+        </div>
+    </div>
+</div>
+
+<div id="app" style="display:none;">
+    <div id="viewer"></div>
+    <div id="sidebar">
+        <div id="user-bar">
+            <span id="welcome-user"></span>
+            <a id="logout-link">Deconnexion</a>
+        </div>
+        <div id="thumb-list"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // USERS and PHOTOS are loaded from users-config.js
+
+    const MAX_ATTEMPTS = 2;
+    const COOKIE_DAYS = 365;
+
+    // --- Cookie helpers ---
+    function setCookie(name, value, days) {
+        const d = new Date();
+        d.setTime(d.getTime() + days * 86400000);
+        document.cookie = name + "=" + encodeURIComponent(value) + ";expires=" + d.toUTCString() + ";path=/;SameSite=Lax";
+    }
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+        return match ? decodeURIComponent(match[1]) : null;
+    }
+    function deleteCookie(name) {
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax";
+    }
+
+    // --- Normalize name: lowercase, remove accents ---
+    function normalize(name) {
+        return name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+
+    // --- Auth ---
+    function isBlacklisted() {
+        return getCookie("g360_blocked") === "1";
+    }
+    function getFailCount() {
+        return parseInt(getCookie("g360_fails") || "0", 10);
+    }
+    function getLoggedUser() {
+        return getCookie("g360_user");
+    }
+
+    function tryLogin(rawName) {
+        if (isBlacklisted()) return false;
+        const key = normalize(rawName);
+        if (key in USERS) {
+            setCookie("g360_user", key, COOKIE_DAYS);
+            deleteCookie("g360_fails");
+            return true;
+        }
+        const fails = getFailCount() + 1;
+        if (fails >= MAX_ATTEMPTS) {
+            setCookie("g360_blocked", "1", COOKIE_DAYS);
+        } else {
+            setCookie("g360_fails", String(fails), COOKIE_DAYS);
+        }
+        return false;
+    }
+
+    function logout() {
+        deleteCookie("g360_user");
+        location.reload();
+    }
+
+    // --- UI ---
+    var viewer = null;
+
+    function showLogin() {
+        document.getElementById("login-overlay").style.display = "flex";
+        document.getElementById("app").style.display = "none";
+        if (isBlacklisted()) {
+            document.getElementById("login-form").style.display = "none";
+            document.getElementById("blacklisted-msg").style.display = "block";
+        }
+    }
+
+    function showGallery(user) {
+        document.getElementById("login-overlay").style.display = "none";
+        document.getElementById("app").style.display = "flex";
+        document.getElementById("welcome-user").textContent = user;
+        document.getElementById("logout-link").onclick = logout;
+
+        var dir = USERS[user];
+        var photos = PHOTOS[dir] || [];
+        var thumbList = document.getElementById("thumb-list");
+        thumbList.innerHTML = "";
+
+        photos.forEach(function(file, i) {
+            var img = document.createElement("img");
+            img.className = "thumb";
+            img.src = dir + "/" + file;
+            img.alt = file;
+            img.loading = "lazy";
+            img.onclick = function() { loadPhoto(dir + "/" + file, i); };
+            thumbList.appendChild(img);
+        });
+
+        if (photos.length > 0) {
+            loadPhoto(dir + "/" + photos[0], 0);
+        }
+    }
+
+    function loadPhoto(path, index) {
+        // Update active thumbnail
+        var thumbs = document.querySelectorAll("#thumb-list .thumb");
+        thumbs.forEach(function(t, i) {
+            t.classList.toggle("active", i === index);
+        });
+
+        if (viewer) { viewer.destroy(); }
+        viewer = pannellum.viewer("viewer", {
+            type: "equirectangular",
+            panorama: path,
+            autoLoad: true,
+            autoRotate: -2,
+            compass: false,
+            showControls: true,
+            hfov: 110
+        });
+    }
+
+    // --- Login form ---
+    document.getElementById("login-btn").onclick = function() {
+        var val = document.getElementById("name-input").value;
+        if (!val.trim()) return;
+        if (tryLogin(val)) {
+            showGallery(normalize(val));
+        } else if (isBlacklisted()) {
+            document.getElementById("login-form").style.display = "none";
+            document.getElementById("blacklisted-msg").style.display = "block";
+        } else {
+            document.getElementById("login-error").textContent = "Prenom non reconnu. " + (MAX_ATTEMPTS - getFailCount()) + " tentative(s) restante(s).";
+        }
+    };
+    document.getElementById("name-input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") document.getElementById("login-btn").click();
+    });
+
+    // --- Init ---
+    var user = getLoggedUser();
+    if (user && !isBlacklisted() && (user in USERS)) {
+        showGallery(user);
+    } else {
+        showLogin();
+    }
+})();
+</script>
+</body>
+</html>
