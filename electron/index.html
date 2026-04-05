@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' photo:;">
     <title>Galerie 360</title>
     <link rel="stylesheet" href="node_modules/pannellum/build/pannellum.css">
     <script src="node_modules/pannellum/build/pannellum.js"></script>
@@ -137,6 +136,14 @@
     }
 
     document.getElementById("pick-btn").onclick = openFolder;
+
+    // Auto-open if photos exist in the exe directory
+    (async function() {
+        var result = await window.electronAPI.checkExeDir();
+        if (result && result.photos.length > 0) {
+            showGallery(result.dir, result.photos);
+        }
+    })();
 })();
 </script>
 </body>
