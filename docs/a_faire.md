@@ -7,3 +7,17 @@ Put the allowed user list and the  User → directory mapping  in a separate fil
 Push project to my github under repo name "360-library-viewer".
 Clone project on host googlevm, ssh googlevm is available already authentified. Deploy on port 4301. Prepare an nginx configuration file for domain viewer-360.duckdns.org. Use supervisorctl to control start-stop.
 Use rsync to push the directory holding the files and the confidential User files
+## 2. first names
+Add the following first names to the allow list: 
+Yann
+Marie-Paule
+Thomas
+Brice
+Mathilde
+Louise
+Anthony
+Florent
+Eudoxie
+Arthur
+## 3. make an electron package
+With the same user interface, create an electron executable to be installed in the photolibrary. The executable does not check the firstname.
