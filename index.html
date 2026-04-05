@@ -56,6 +56,27 @@
             display: flex; justify-content: space-between; align-items: center;
         }
         #user-bar a { color: #ff6b6b; cursor: pointer; text-decoration: underline; font-size: 0.8rem; }
+
+        /* Gallery chooser overlay */
+        #chooser-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+        }
+        #chooser-box {
+            background: #2a2a2a; padding: 2rem; border-radius: 8px;
+            text-align: center; min-width: 340px;
+        }
+        #chooser-box h2 { margin-bottom: 0.5rem; }
+        #chooser-box p { color: #aaa; margin-bottom: 1.2rem; }
+        .chooser-btn {
+            display: block; width: 100%; padding: 0.8rem 1rem;
+            font-size: 1rem; border: 1px solid #555; border-radius: 6px;
+            background: #333; color: #fff; cursor: pointer;
+            margin-bottom: 0.6rem; transition: background 0.2s, border-color 0.2s;
+        }
+        .chooser-btn:hover { background: #4a9eff; border-color: #4a9eff; }
+        #chooser-logout { color: #ff6b6b; cursor: pointer; text-decoration: underline; font-size: 0.8rem; margin-top: 0.5rem; display: inline-block; }
     </style>
 </head>
 <body>
@@ -76,12 +97,24 @@
     </div>
 </div>
 
+<div id="chooser-overlay" style="display:none;">
+    <div id="chooser-box">
+        <h2>Galerie 360</h2>
+        <p>Choisissez un album</p>
+        <div id="chooser-list"></div>
+        <a id="chooser-logout">Deconnexion</a>
+    </div>
+</div>
+
 <div id="app" style="display:none;">
     <div id="viewer"></div>
     <div id="sidebar">
         <div id="user-bar">
             <span id="welcome-user"></span>
-            <a id="logout-link">Deconnexion</a>
+            <span>
+                <a id="albums-link" style="color:#4a9eff;cursor:pointer;text-decoration:underline;font-size:0.8rem;margin-right:8px;">Albums</a>
+                <a id="logout-link">Deconnexion</a>
+            </span>
         </div>
         <div id="thumb-list"></div>
     </div>
@@ -148,9 +181,11 @@
 
     // --- UI ---
     var viewer = null;
+    var currentUser = null;
 
     function showLogin() {
         document.getElementById("login-overlay").style.display = "flex";
+        document.getElementById("chooser-overlay").style.display = "none";
         document.getElementById("app").style.display = "none";
         if (isBlacklisted()) {
             document.getElementById("login-form").style.display = "none";
@@ -158,13 +193,39 @@
         }
     }
 
-    function showGallery(user) {
+    function showChooser(user) {
+        currentUser = user;
         document.getElementById("login-overlay").style.display = "none";
+        document.getElementById("app").style.display = "none";
+        document.getElementById("chooser-overlay").style.display = "flex";
+
+        var dirs = USERS[user];
+        var list = document.getElementById("chooser-list");
+        list.innerHTML = "";
+
+        dirs.forEach(function(dir) {
+            var btn = document.createElement("button");
+            btn.className = "chooser-btn";
+            btn.textContent = (LABELS && LABELS[dir]) ? LABELS[dir] : dir;
+            btn.onclick = function() { showGallery(user, dir); };
+            list.appendChild(btn);
+        });
+
+        document.getElementById("chooser-logout").onclick = logout;
+    }
+
+    function showGallery(user, dir) {
+        currentUser = user;
+        document.getElementById("login-overlay").style.display = "none";
+        document.getElementById("chooser-overlay").style.display = "none";
         document.getElementById("app").style.display = "flex";
         document.getElementById("welcome-user").textContent = user;
         document.getElementById("logout-link").onclick = logout;
+        document.getElementById("albums-link").onclick = function() {
+            if (viewer) { viewer.destroy(); viewer = null; }
+            showChooser(user);
+        };
 
-        var dir = USERS[user];
         var photos = PHOTOS[dir] || [];
         var thumbList = document.getElementById("thumb-list");
         thumbList.innerHTML = "";
@@ -208,7 +269,7 @@
         var val = document.getElementById("name-input").value;
         if (!val.trim()) return;
         if (tryLogin(val)) {
-            showGallery(normalize(val));
+            showChooser(normalize(val));
         } else if (isBlacklisted()) {
             document.getElementById("login-form").style.display = "none";
             document.getElementById("blacklisted-msg").style.display = "block";
@@ -223,7 +284,7 @@
     // --- Init ---
     var user = getLoggedUser();
     if (user && !isBlacklisted() && (user in USERS)) {
-        showGallery(user);
+        showChooser(user);
     } else {
         showLogin();
     }

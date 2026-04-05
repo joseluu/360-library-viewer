@@ -23,9 +23,19 @@ sudo cp "$REMOTE_DIR/deploy/nginx-viewer-360.conf" /etc/nginx/sites-available/vi
 sudo ln -sf /etc/nginx/sites-available/viewer-360 /etc/nginx/sites-enabled/viewer-360
 sudo nginx -t && sudo systemctl reload nginx
 
+echo "=== Setting up HTTPS (Let's Encrypt) ==="
+if ! command -v certbot &> /dev/null; then
+    sudo apt update && sudo apt install -y certbot python3-certbot-nginx
+fi
+if [ ! -d "/etc/letsencrypt/live/viewer-360.duckdns.org" ]; then
+    sudo certbot --nginx -d viewer-360.duckdns.org --non-interactive --agree-tos -m jose.luu@gmail.com --redirect
+else
+    echo "Certificate already exists, skipping certbot"
+fi
+
 echo "=== Starting service ==="
 sudo supervisorctl start viewer-360
 
 echo "=== Setup complete ==="
-echo "Site will be available at http://viewer-360.duckdns.org"
+echo "Site will be available at https://viewer-360.duckdns.org"
 echo "Now run rsync-deploy.sh locally to push photos and users-config.js"
