@@ -3,7 +3,7 @@
 # Run from the viewer/ directory
 
 REMOTE="googlevm"
-REMOTE_DIR="/opt/viewer-360"
+REMOTE_DIR="/home/jose_luu/360-library-viewer"
 
 echo "=== Syncing photo directories ==="
 scp -r Photos-360-Lisa-Damien-4-Avril "$REMOTE:$REMOTE_DIR/"

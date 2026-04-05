@@ -3,12 +3,15 @@
 # Usage: ssh googlevm 'bash -s' < deploy/setup-remote.sh
 
 set -e
-REMOTE_DIR="/opt/viewer-360"
+REMOTE_DIR="/home/jose_luu/360-library-viewer"
 
 echo "=== Cloning repo ==="
-sudo mkdir -p "$REMOTE_DIR"
-sudo chown "$USER:$USER" "$REMOTE_DIR"
-git clone https://github.com/joseluu/360-library-viewer.git "$REMOTE_DIR"
+cd /home/jose_luu
+if [ -d "$REMOTE_DIR/.git" ]; then
+    cd "$REMOTE_DIR" && git pull
+else
+    git clone https://github.com/joseluu/360-library-viewer.git
+fi
 
 echo "=== Installing supervisor config ==="
 sudo cp "$REMOTE_DIR/deploy/viewer-360.supervisor.conf" /etc/supervisor/conf.d/viewer-360.conf
