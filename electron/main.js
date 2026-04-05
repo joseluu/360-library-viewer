@@ -5,6 +5,10 @@ const fs = require('fs');
 let photoDir = null;
 
 function getExeDir() {
+    // Portable exe: electron-builder sets this to the real directory
+    if (process.env.PORTABLE_EXECUTABLE_DIR) {
+        return process.env.PORTABLE_EXECUTABLE_DIR;
+    }
     if (app.isPackaged) {
         return path.dirname(process.execPath);
     }
