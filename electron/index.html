@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' photo:;">
+    <title>Galerie 360</title>
+    <link rel="stylesheet" href="node_modules/pannellum/build/pannellum.css">
+    <script src="node_modules/pannellum/build/pannellum.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; height: 100vh; background: #1a1a1a; color: #fff; }
+
+        /* Folder picker overlay */
+        #pick-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+        }
+        #pick-box {
+            background: #2a2a2a; padding: 2rem; border-radius: 8px;
+            text-align: center; min-width: 300px;
+        }
+        #pick-box h2 { margin-bottom: 1rem; }
+        #pick-box button {
+            padding: 0.5rem 1.5rem; font-size: 1rem; border: none;
+            border-radius: 4px; background: #4a9eff; color: #fff; cursor: pointer;
+        }
+        #pick-box button:hover { background: #3a8eef; }
+        #pick-error { color: #ff6b6b; margin-top: 0.5rem; min-height: 1.2em; }
+
+        /* Main layout */
+        #app { display: flex; height: 100vh; }
+        #viewer { flex: 1; }
+        #sidebar {
+            width: 220px; background: #222; overflow-y: auto;
+            padding: 8px; flex-shrink: 0;
+        }
+        #sidebar .thumb {
+            width: 100%; aspect-ratio: 2/1; object-fit: cover;
+            border-radius: 4px; cursor: pointer; margin-bottom: 8px;
+            border: 2px solid transparent; transition: border-color 0.2s;
+        }
+        #sidebar .thumb:hover { border-color: #4a9eff; }
+        #sidebar .thumb.active { border-color: #4a9eff; }
+        #folder-bar {
+            padding: 8px; font-size: 0.85rem; color: #aaa;
+            border-bottom: 1px solid #333; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #folder-bar a { color: #4a9eff; cursor: pointer; text-decoration: underline; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div id="pick-overlay">
+    <div id="pick-box">
+        <h2>Galerie 360</h2>
+        <p style="margin-bottom:1rem;color:#aaa;">Choisir le dossier contenant les photos 360</p>
+        <button id="pick-btn">Ouvrir un dossier</button>
+        <div id="pick-error"></div>
+    </div>
+</div>
+
+<div id="app" style="display:none;">
+    <div id="viewer"></div>
+    <div id="sidebar">
+        <div id="folder-bar">
+            <span id="folder-name"></span>
+            <a id="change-folder">Changer</a>
+        </div>
+        <div id="thumb-list"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var viewer = null;
+
+    async function openFolder() {
+        var dir = await window.electronAPI.pickFolder();
+        if (!dir) return;
+        var photos = await window.electronAPI.listPhotos(dir);
+        if (photos.length === 0) {
+            document.getElementById("pick-error").textContent = "Aucune photo trouvee dans ce dossier.";
+            return;
+        }
+        showGallery(dir, photos);
+    }
+
+    function showGallery(dir, photos) {
+        document.getElementById("pick-overlay").style.display = "none";
+        document.getElementById("app").style.display = "flex";
+
+        var folderName = dir.split(/[/\\]/).pop();
+        document.getElementById("folder-name").textContent = folderName;
+        document.getElementById("change-folder").onclick = function() {
+            document.getElementById("pick-overlay").style.display = "flex";
+            document.getElementById("app").style.display = "none";
+            document.getElementById("pick-error").textContent = "";
+        };
+
+        var thumbList = document.getElementById("thumb-list");
+        thumbList.innerHTML = "";
+
+        photos.forEach(function(photo, i) {
+            var img = document.createElement("img");
+            img.className = "thumb";
+            img.src = photo.url;
+            img.alt = photo.name;
+            img.loading = "lazy";
+            img.onclick = function() { loadPhoto(photo.url, i); };
+            thumbList.appendChild(img);
+        });
+
+        if (photos.length > 0) {
+            loadPhoto(photos[0].url, 0);
+        }
+    }
+
+    function loadPhoto(url, index) {
+        var thumbs = document.querySelectorAll("#thumb-list .thumb");
+        thumbs.forEach(function(t, i) {
+            t.classList.toggle("active", i === index);
+        });
+
+        if (viewer) { viewer.destroy(); }
+        viewer = pannellum.viewer("viewer", {
+            type: "equirectangular",
+            panorama: url,
+            autoLoad: true,
+            autoRotate: -2,
+            compass: false,
+            showControls: true,
+            hfov: 110
+        });
+    }
+
+    document.getElementById("pick-btn").onclick = openFolder;
+})();
+</script>
+</body>
+</html>

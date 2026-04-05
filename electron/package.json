@@ -1,0 +1,31 @@
+{
+  "name": "galerie-360",
+  "version": "1.0.0",
+  "description": "360 photo gallery viewer using Pannellum",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.galerie360.viewer",
+    "productName": "Galerie 360",
+    "win": {
+      "target": "portable"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "node_modules/pannellum/**"
+    ],
+    "extraResources": []
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "pannellum": "^2.5.6"
+  }
+}
